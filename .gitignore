@@ -1,0 +1,3 @@
+# Lokale hemmeligheter og skannresultater
+.env
+zap-output/

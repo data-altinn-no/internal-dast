@@ -1,0 +1,61 @@
+# ZAP API-skann i GitHub Actions. Funnene havner under Security -> Code scanning.
+#
+# Variabler (Settings -> Secrets and variables -> Actions -> Variables):
+#   API_PROJECT, API_BASE, OPENAPI_SPEC_URL, TOKEN_URL
+# Secrets:
+#   TOKEN_BASIC_AUTH
+
+name: ZAP API scan
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"   # mandag 06:00 UTC = 07:00 norsk vintertid (08:00 sommertid)
+
+permissions:
+  contents: read
+  security-events: write   # upload-sarif til code scanning
+  actions: read            # trengs av upload-sarif i private repoer
+
+env:
+  ZAP_DIR: .               # mappa blueprinten ligger i, f.eks. "zap" hvis den er en undermappe
+
+jobs:
+  api-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Kjør API-skann
+        working-directory: ${{ env.ZAP_DIR }}
+        run: bash scripts/run-api.sh
+        env:
+          API_PROJECT: ${{ vars.API_PROJECT }}
+          API_BASE: ${{ vars.API_BASE }}
+          OPENAPI_SPEC_URL: ${{ vars.OPENAPI_SPEC_URL }}
+          TOKEN_URL: ${{ vars.TOKEN_URL }}
+          TOKEN_BASIC_AUTH: ${{ secrets.TOKEN_BASIC_AUTH }}
+
+      # dast/<host>/<path> og legger URL-en øverst i meldingen.
+      - name: Tilpass SARIF til code scanning
+        if: always() && hashFiles(format('{0}/{1}/zap-report.sarif', env.ZAP_DIR, env.ZAP_REPORT_DIR)) != ''
+        working-directory: ${{ env.ZAP_DIR }}
+        run: bash scripts/sarif-for-github.sh "${ZAP_REPORT_DIR}/zap-report.sarif"
+
+      # Kjører også når skannet feiler på funn. Funnene vises under Security -> Code scanning.
+      - name: Last opp funn til GitHub code scanning
+        if: always() && hashFiles(format('{0}/{1}/zap-report.sarif', env.ZAP_DIR, env.ZAP_REPORT_DIR)) != ''
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: ${{ env.ZAP_DIR }}/${{ env.ZAP_REPORT_DIR }}/zap-report.sarif
+          category: zap-api
+
+      - name: Rapport som artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: zap-api-report
+          path: ${{ env.ZAP_DIR }}/zap-output/
+          if-no-files-found: warn
