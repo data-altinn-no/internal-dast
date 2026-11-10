@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ZAP API-skann med Automation Framework (plans/zap-api.yaml).
-# Kjører likt lokalt og i CI. Krever docker og curl.
+# Kjører likt lokalt og i CI. Krever docker, curl og jq.
 #
 # Nødvendige variabler (fra .env eller miljøet):
 #   API_PROJECT, API_BASE, OPENAPI_SPEC_URL, TOKEN_URL, TOKEN_BASIC_AUTH
@@ -44,12 +44,38 @@ if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
 fi
 export TOKEN
 
+# Henter OpenAPI-spec og retter eksempler som har både value og externalValue.
+# OpenAPI tillater bare ett av dem, og ZAP stopper importen hvis begge finnes.
+# Regel: det som er tomt fjernes. Har begge innhold, beholdes value.
+# Bare objekter under "examples" endres. Filen lagres i rapportmappen og blir med i artifacten.
+command -v jq >/dev/null || { echo "jq mangler" >&2; exit 1; }
+SPEC_FILE="${OUT_DIR}/openapi.json"
+echo "Henter OpenAPI-spec fra ${OPENAPI_SPEC_URL%%\?*}"
+if ! curl -fsS "${OPENAPI_SPEC_URL}" | jq '
+  def blank: . == null or . == "" or . == {} or . == [];
+  def fix_example:
+    if type == "object" and has("value") and has("externalValue") then
+      if (.value | blank) and (.externalValue | blank) then del(.value, .externalValue)
+      elif (.externalValue | blank) then del(.externalValue)
+      elif (.value | blank) then del(.value)
+      else del(.externalValue)
+      end
+    else . end;
+  walk(if type == "object" and (.examples | type) == "object"
+       then .examples |= map_values(fix_example)
+       else . end)
+' > "$SPEC_FILE"; then
+  echo "Klarte ikke å hente eller lese OpenAPI-spec (må være JSON): ${OPENAPI_SPEC_URL%%\?*}" >&2
+  exit 1
+fi
+export OPENAPI_SPEC_FILE="/zap/wrk/${SPEC_FILE}"
+
 echo "Starter ZAP (${ZAP_IMAGE}), rapport til ${OUT_DIR}"
 set +e
 docker run --rm --memory "$ZAP_DOCKER_MEMORY" \
   -v "${ZAP_DIR}/plans:/zap/wrk/plans:ro" \
   -v "${ZAP_DIR}/zap-output:/zap/wrk/zap-output" \
-  -e TOKEN -e API_BASE -e OPENAPI_SPEC_URL -e ZAP_REPORT_DIR \
+  -e TOKEN -e API_BASE -e OPENAPI_SPEC_FILE -e ZAP_REPORT_DIR \
   "$ZAP_IMAGE" zap.sh -cmd -autorun /zap/wrk/plans/zap-api.yaml
 status=$?
 set -e

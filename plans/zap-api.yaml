@@ -31,7 +31,7 @@ jobs:
   # Importerer OpenAPI-spec og legger alle endepunkter i sites-treet.
   - type: openapi
     parameters:
-      apiUrl: ${OPENAPI_SPEC_URL}
+      apiFile: ${OPENAPI_SPEC_FILE}   # spec hentet og rettet av run-api.sh (fra OPENAPI_SPEC_URL)
       targetUrl: ${API_BASE}     # overstyrer host/basePath i spec-en
       context: api
 
