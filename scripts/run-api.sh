@@ -5,7 +5,8 @@ set -euo pipefail
 # Kjører likt lokalt og i CI. Krever docker, curl og jq.
 #
 # Nødvendige variabler (fra .env eller miljøet):
-#   API_PROJECT, API_BASE, OPENAPI_SPEC_URL, TOKEN_URL, TOKEN_BASIC_AUTH
+#   API_PROJECT, API_BASE, OPENAPI_SPEC_URL, TOKEN_URL, TOKEN_BASIC_AUTH,
+#   APIM_SUBSCRIPTION_KEY
 # Valgfrie:
 #   ZAP_IMAGE, ZAP_DOCKER_MEMORY
 
@@ -24,6 +25,7 @@ fi
 : "${OPENAPI_SPEC_URL:?Mangler OPENAPI_SPEC_URL (URL til OpenAPI/Swagger-spec)}"
 : "${TOKEN_URL:?Mangler TOKEN_URL (endepunkt som returnerer bearer-token)}"
 : "${TOKEN_BASIC_AUTH:?Mangler TOKEN_BASIC_AUTH ('Basic <base64>')}"
+: "${APIM_SUBSCRIPTION_KEY:?Mangler APIM_SUBSCRIPTION_KEY (subscription key for API Management, sendes som Ocp-Apim-Subscription-Key)}"
 : "${ZAP_IMAGE:=zaproxy/zap-stable}"
 : "${ZAP_DOCKER_MEMORY:=8g}"   # ZAP setter Java-heap til 1/4 av vertens minne, så grensen må ha god margin
 
@@ -75,7 +77,7 @@ set +e
 docker run --rm --memory "$ZAP_DOCKER_MEMORY" \
   -v "${ZAP_DIR}/plans:/zap/wrk/plans:ro" \
   -v "${ZAP_DIR}/zap-output:/zap/wrk/zap-output" \
-  -e TOKEN -e API_BASE -e OPENAPI_SPEC_FILE -e ZAP_REPORT_DIR \
+  -e TOKEN -e APIM_SUBSCRIPTION_KEY -e API_BASE -e OPENAPI_SPEC_FILE -e ZAP_REPORT_DIR \
   "$ZAP_IMAGE" zap.sh -cmd -autorun /zap/wrk/plans/zap-api.yaml
 status=$?
 set -e

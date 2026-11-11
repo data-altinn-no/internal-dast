@@ -3,7 +3,7 @@
 # Variabler (Settings -> Secrets and variables -> Actions -> Variables):
 #   API_PROJECT, API_BASE, OPENAPI_SPEC_URL, TOKEN_URL
 # Secrets:
-#   TOKEN_BASIC_AUTH
+#   TOKEN_BASIC_AUTH, APIM_SUBSCRIPTION_KEY
 
 name: ZAP API scan
 
@@ -37,6 +37,7 @@ jobs:
           OPENAPI_SPEC_URL: ${{ vars.OPENAPI_SPEC_URL }}
           TOKEN_URL: ${{ vars.TOKEN_URL }}
           TOKEN_BASIC_AUTH: ${{ secrets.TOKEN_BASIC_AUTH }}
+          APIM_SUBSCRIPTION_KEY: ${{ secrets.APIM_SUBSCRIPTION_KEY }}
 
       # dast/<host>/<path> og legger URL-en øverst i meldingen.
       - name: Tilpass SARIF til code scanning

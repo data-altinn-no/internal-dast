@@ -16,7 +16,7 @@ env:
     progressToStdout: true
 
 jobs:
-  # Legger Authorization-header på alle forespørsler ZAP sender.
+  # Legger Authorization- og subscription key-header på alle forespørsler ZAP sender.
   - type: replacer
     parameters:
       deleteAllRules: true
@@ -26,6 +26,12 @@ jobs:
         matchString: Authorization
         matchRegex: false
         replacementString: "Bearer ${TOKEN}"
+        tokenProcessing: false
+      - description: ApimSubscriptionKey
+        matchType: req_header
+        matchString: Ocp-Apim-Subscription-Key
+        matchRegex: false
+        replacementString: "${APIM_SUBSCRIPTION_KEY}"
         tokenProcessing: false
 
   # Importerer OpenAPI-spec og legger alle endepunkter i sites-treet.
